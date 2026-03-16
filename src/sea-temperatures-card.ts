@@ -2,7 +2,7 @@ import { LitElement, TemplateResult, html, svg, unsafeCSS } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { HomeAssistant, LovelaceCard, LovelaceCardEditor, PlaceConfig, SeaTemperaturesCardConfig } from './types.js';
 import { localize } from './localize.js';
-import { fireEvent, fetchHistory, fetchHistoryRange, HAHistoryItem } from './utils.js';
+import { fireEvent, fetchHistory } from './utils.js';
 import { scaleTime, scaleLinear, line, area, curveMonotoneX, extent, bisector } from 'd3';
 import styles from './styles/card.styles.scss';
 
@@ -183,90 +183,56 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
     this._historyState = await fetchHistory(this.hass, entities, 24);
   }
 
-  private async _fetchChartData(): Promise<void> {
+  private _fetchChartData(): void {
     if (!this.hass || !this._config.places) return;
     const places = this._getPlacesData(this.hass, this._config);
     const entities = places.map((p) => p.entity_id);
     if (entities.length === 0) return;
 
-    const historyRecord = await fetchHistoryRange(this.hass, entities, 30);
-    console.log('[SeaTempCard] _fetchChartData historyRecord:', historyRecord);
-
     const chartData: Record<string, HistoryPoint[]> = {};
 
-    Object.entries(historyRecord).forEach(([entityId, states]) => {
-      chartData[entityId] = (states as HAHistoryItem[])
-        .map((s) => {
-          const timestamp = s.t ?? s.lu;
-          const dateStr = s.last_updated ?? s.last_changed;
-          let dateObj = new Date();
-          if (timestamp !== undefined) {
-            // HA timestamps are often in seconds
-            dateObj = new Date(timestamp * (timestamp < 1e12 ? 1000 : 1));
-          } else if (dateStr) {
-            dateObj = new Date(dateStr);
-          }
-          const stateStr = s.s !== undefined ? s.s : s.state;
-          return {
-            date: dateObj,
-            value: parseFloat(stateStr ?? ''),
-          };
-        })
-        .filter((p) => !isNaN(p.value));
-    });
-
-    // Fallback: Check if the sensor provides its own charts attribute (for new integrations without HA history)
     entities.forEach((entityId) => {
-      if (!chartData[entityId] || chartData[entityId].length < 2) {
-        const entity = this.hass?.states[entityId];
-        const charts = entity?.attributes?.charts as
-          | { last_thirty?: { labels?: string[]; series?: (number | string)[] } }
-          | undefined;
+      const entity = this.hass?.states[entityId];
+      const charts = entity?.attributes?.charts as
+        | { last_thirty?: { labels?: string[]; series?: (number | string)[] } }
+        | undefined;
 
-        console.log(`[SeaTempCard] Fallback check for ${entityId}. charts:`, charts);
+      if (charts?.last_thirty?.labels && charts?.last_thirty?.series) {
+        const labels = charts.last_thirty.labels as string[];
+        const series = charts.last_thirty.series as (number | string)[];
 
-        if (charts?.last_thirty?.labels && charts?.last_thirty?.series) {
-          const labels = charts.last_thirty.labels as string[];
-          const series = charts.last_thirty.series as (number | string)[];
+        if (Array.isArray(labels) && Array.isArray(series) && labels.length === series.length) {
+          const currentYear = new Date().getFullYear();
+          const currentMonth = new Date().getMonth() + 1; // 1-12
 
-          console.log(`[SeaTempCard] Fallback labels/series lengths for ${entityId}:`, labels.length, series.length);
+          chartData[entityId] = labels
+            .map((label, index) => {
+              const parts = String(label).split('-');
+              if (parts.length !== 2) return { date: new Date(), value: NaN };
+              const month = parseInt(parts[0], 10);
+              const day = parseInt(parts[1], 10);
 
-          if (Array.isArray(labels) && Array.isArray(series) && labels.length === series.length) {
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth() + 1; // 1-12
+              let year = currentYear;
+              // If data month is ahead of current month (e.g. data is Dec, current is Jan), assume last year
+              if (month > currentMonth + 1) {
+                year -= 1;
+              }
+              // If we are late in the year (e.g., Dec) and we get data for early next year (e.g., Jan), this shouldn't happen for past 30 days, but just in case
+              if (currentMonth > 10 && month < 3) {
+                year += 1;
+              }
 
-            chartData[entityId] = labels
-              .map((label, index) => {
-                const parts = String(label).split('-');
-                if (parts.length !== 2) return { date: new Date(), value: NaN };
-                const month = parseInt(parts[0], 10);
-                const day = parseInt(parts[1], 10);
-
-                let year = currentYear;
-                // If data month is ahead of current month (e.g. data is Dec, current is Jan), assume last year
-                if (month > currentMonth + 1) {
-                  year -= 1;
-                }
-                // If we are late in the year (e.g., Dec) and we get data for early next year (e.g., Jan), this shouldn't happen for past 30 days, but just in case
-                if (currentMonth > 10 && month < 3) {
-                  year += 1;
-                }
-
-                return {
-                  date: new Date(year, month - 1, day),
-                  value: parseFloat(String(series[index])),
-                };
-              })
-              .filter((p) => !isNaN(p.value))
-              .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-            console.log(`[SeaTempCard] Fallback chart data populated for ${entityId}:`, chartData[entityId]);
-          }
+              return {
+                date: new Date(year, month - 1, day),
+                value: parseFloat(String(series[index])),
+              };
+            })
+            .filter((p) => !isNaN(p.value))
+            .sort((a, b) => a.date.getTime() - b.date.getTime());
         }
       }
     });
 
-    console.log('[SeaTempCard] _fetchChartData parsed chartData:', chartData);
     this._chartData = { ...chartData };
     this.requestUpdate();
   }
