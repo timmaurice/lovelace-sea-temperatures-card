@@ -1,6 +1,6 @@
 {
   "name": "sea-temperatures-card",
-  "version": "0.1.1",
+  "version": "1.0.1",
   "description": "A Lovelace card to display sea temperatures.",
   "homepage": "https://github.com/timmaurice/sea-temperatures-card#readme",
   "bugs": {
