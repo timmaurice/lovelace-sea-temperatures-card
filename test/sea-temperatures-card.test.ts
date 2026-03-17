@@ -292,5 +292,22 @@ describe('SeaTemperaturesCard', () => {
       expect(cardDisabled.shadowRoot?.querySelector('.trend-icon')).toBeNull();
       cardDisabled.remove();
     });
+
+    it('sets the correct default smoothing type', async () => {
+      // should default to smooth
+      const card = await setupCard({ show_chart: true });
+      expect((card as unknown as { _config: SeaTemperaturesCardConfig })._config.chart_smoothing).toBe('smooth');
+      card.remove();
+    });
+
+    it('honors explicitly defined chart smoothing properties', async () => {
+      const cardStep = await setupCard({ show_chart: true, chart_smoothing: 'step' });
+      expect((cardStep as unknown as { _config: SeaTemperaturesCardConfig })._config.chart_smoothing).toBe('step');
+      cardStep.remove();
+
+      const cardLinear = await setupCard({ show_chart: true, chart_smoothing: 'linear' });
+      expect((cardLinear as unknown as { _config: SeaTemperaturesCardConfig })._config.chart_smoothing).toBe('linear');
+      cardLinear.remove();
+    });
   });
 });

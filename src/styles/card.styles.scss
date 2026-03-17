@@ -197,6 +197,16 @@
   filter: drop-shadow(0 1px 2px rgba(var(--rgb-primary-color), 0.3));
 }
 
+.extrema-dot {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  &.min {
+    fill: #41bdf5;
+  }
+  &.max {
+    fill: #ff9800;
+  }
+}
+
 .hover-group {
   pointer-events: none;
 }
@@ -215,13 +225,15 @@
 }
 
 .hover-tooltip-bg {
-  fill: var(--primary-color, #0077be);
-  opacity: 0.9;
+  fill: var(--card-background-color);
+  stroke: var(--divider-color, #eee);
+  stroke-width: 1;
+  opacity: 0.95;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .hover-tooltip-text {
-  fill: var(--text-primary-color, #fff);
+  fill: var(--primary-text-color);
   font-size: 10px;
   font-weight: bold;
 }

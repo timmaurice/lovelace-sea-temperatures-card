@@ -76,4 +76,5 @@ export interface SeaTemperaturesCardConfig extends LovelaceCardConfig {
   show_trend?: boolean;
   show_stats?: boolean;
   show_chart?: boolean;
+  chart_smoothing?: 'smooth' | 'linear' | 'step';
 }

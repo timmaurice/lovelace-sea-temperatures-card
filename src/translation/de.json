@@ -8,7 +8,8 @@
     "show_trend": "Zeige Trend-Indikatoren (24h)",
     "show_last_updated": "Zuletzt aktualisiert anzeigen",
     "show_stats": "Statistiken anzeigen (Gestern, Letzte Woche, Letztes Jahr)",
-    "show_chart": "Historisches Diagramm anzeigen (30t)"
+    "show_chart": "Historisches Diagramm anzeigen (30t)",
+    "chart_smoothing": "Kurvenglättung"
   },
   "card": {
     "place_not_found": "Ort nicht gefunden: {place}"

@@ -72,6 +72,7 @@ You can now add the card to your dashboard.
 | `show_trend`        | boolean                 | `true`       | Show 24h trend indicators.                                                                   |
 | `show_stats`        | boolean                 | `true`       | Show statistics (Yesterday, Last Week, Last Year).                                           |
 | `show_chart`        | boolean                 | `true`       | Show historical 30-day D3 chart.                                                             |
+| `chart_smoothing`   | string                  | `smooth`     | Algorithm for D3 chart drawing. Valid options: `smooth`, `linear`, `step`                    |
 
 ### Example
 

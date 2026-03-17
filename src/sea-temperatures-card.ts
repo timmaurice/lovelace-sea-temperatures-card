@@ -3,7 +3,7 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { HomeAssistant, LovelaceCard, LovelaceCardEditor, PlaceConfig, SeaTemperaturesCardConfig } from './types.js';
 import { localize } from './localize.js';
 import { fireEvent, fetchHistory } from './utils.js';
-import { scaleTime, scaleLinear, line, area, curveMonotoneX, extent, bisector } from 'd3';
+import { scaleTime, scaleLinear, line, area, curveMonotoneX, curveLinear, curveStepAfter, extent, bisector } from 'd3';
 import styles from './styles/card.styles.scss';
 
 const ELEMENT_NAME = 'sea-temperatures-card';
@@ -56,7 +56,6 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
   @state() private _config!: SeaTemperaturesCardConfig;
   @state() private _historyState: Record<string, string> = {}; // entity_id -> state 24h ago
   @state() private _chartData: Record<string, HistoryPoint[]> = {}; // entity_id -> history points
-  @state() private _hoveredData: Record<string, HistoryPoint> = {}; // entity_id -> hovered point
   private _dataFetched = false;
 
   public setConfig(config: SeaTemperaturesCardConfig): void {
@@ -68,6 +67,8 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
       show_trend: true,
       show_stats: true,
       show_chart: true,
+      compact: false,
+      chart_smoothing: 'smooth',
       ...config,
     };
     // Fetching will happen in updated() when hass is available
@@ -280,7 +281,11 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
                       : ''}
                   </div>
                   <div class="current-temp">
-                    <span class="temp-value">${place.temperature}</span>
+                    <span class="temp-value"
+                      >${!isNaN(Number(place.temperature))
+                        ? new Intl.NumberFormat(this.hass?.language).format(Number(place.temperature))
+                        : place.temperature}</span
+                    >
                     <span class="temp-unit">${place.unit}</span>
                     ${this._renderTrend(place.entity_id, place.temperature)}
                   </div>
@@ -306,10 +311,13 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
 
   private _renderStat(label: string, value?: string, unit?: string): TemplateResult {
     if (!value || value === 'unknown' || value === 'unavailable') return html``;
+    const formattedVal = !isNaN(Number(value))
+      ? new Intl.NumberFormat(this.hass?.language).format(Number(value))
+      : value;
     return html`
       <div class="stat-item">
         <span class="stat-label">${label}</span>
-        <span class="stat-value">${value}${unit}</span>
+        <span class="stat-value">${formattedVal}${unit}</span>
       </div>
     `;
   }
@@ -336,7 +344,14 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _handleMouseMove(e: MouseEvent, entityId: string, data: HistoryPoint[], x: d3.ScaleTime<number, number>) {
+  private _handleMouseMove(
+    e: MouseEvent,
+    entityId: string,
+    data: HistoryPoint[],
+    x: d3.ScaleTime<number, number>,
+    y: d3.ScaleLinear<number, number>,
+    unit: string,
+  ) {
     const svgNode = (e.currentTarget as SVGRectElement).ownerSVGElement;
     if (!svgNode) return;
 
@@ -361,19 +376,78 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
       closestPoint = d1;
     }
 
-    if (closestPoint && this._hoveredData[entityId] !== closestPoint) {
-      this._hoveredData = {
-        ...this._hoveredData,
-        [entityId]: closestPoint,
-      };
+    if (!closestPoint) return;
+
+    const hoverGroup = svgNode.querySelector(`.hover-group`) as SVGGElement | null;
+    if (!hoverGroup) return;
+
+    hoverGroup.style.display = 'block';
+
+    const hx = x(closestPoint.date);
+    const hy = y(closestPoint.value);
+
+    const hoverLine = hoverGroup.querySelector('.hover-line') as SVGLineElement;
+    hoverLine.setAttribute('x1', String(hx));
+    hoverLine.setAttribute('x2', String(hx));
+
+    const hoverPoint = hoverGroup.querySelector('.hover-point') as SVGCircleElement;
+    hoverPoint.setAttribute('cx', String(hx));
+    hoverPoint.setAttribute('cy', String(hy));
+
+    const bg = hoverGroup.querySelector('.hover-tooltip-bg') as SVGRectElement;
+    const textVal = hoverGroup.querySelector('.hover-tooltip-text') as SVGTextElement;
+    const textDate = hoverGroup.querySelector('.hover-tooltip-date') as SVGTextElement;
+
+    const width = 400;
+    let tooltipX = hx;
+    let textAnchor = 'middle';
+    if (hx < 40) {
+      tooltipX = hx + 10;
+      textAnchor = 'start';
+    } else if (hx > width - 40) {
+      tooltipX = hx - 10;
+      textAnchor = 'end';
     }
+
+    const tooltipBgWidth = 70;
+    let tooltipRectX = tooltipX - tooltipBgWidth / 2;
+    if (textAnchor === 'start') tooltipRectX = tooltipX - 5;
+    else if (textAnchor === 'end') tooltipRectX = tooltipX - tooltipBgWidth + 5;
+
+    let tooltipY = hy - 34;
+    let textLine1Y = hy - 23;
+    let textLine2Y = hy - 11;
+
+    if (hy < 40) {
+      tooltipY = hy + 10;
+      textLine1Y = hy + 21;
+      textLine2Y = hy + 33;
+    }
+
+    bg.setAttribute('x', String(tooltipRectX));
+    bg.setAttribute('y', String(tooltipY));
+
+    textVal.setAttribute('x', String(tooltipX));
+    textVal.setAttribute('y', String(textLine1Y));
+    textVal.setAttribute('text-anchor', textAnchor);
+    const formattedVal = new Intl.NumberFormat(this.hass?.language).format(closestPoint.value);
+    textVal.textContent = `${formattedVal}${unit}`;
+
+    textDate.setAttribute('x', String(tooltipX));
+    textDate.setAttribute('y', String(textLine2Y));
+    textDate.setAttribute('text-anchor', textAnchor);
+    textDate.textContent = closestPoint.date.toLocaleDateString(this.hass?.language || undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
-  private _handleMouseLeave(entityId: string) {
-    if (this._hoveredData[entityId]) {
-      const newData = { ...this._hoveredData };
-      delete newData[entityId];
-      this._hoveredData = newData;
+  private _handleMouseLeave(e: MouseEvent) {
+    const svgNode = (e.currentTarget as SVGRectElement).ownerSVGElement;
+    if (!svgNode) return;
+    const hoverGroup = svgNode.querySelector(`.hover-group`) as SVGGElement | null;
+    if (hoverGroup) {
+      hoverGroup.style.display = 'none';
     }
   }
 
@@ -396,16 +470,20 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
       .domain([finalYExtent[0] - padding, finalYExtent[1] + padding])
       .range([height - margin.bottom, margin.top]);
 
+    let curveType = curveMonotoneX;
+    if (this._config.chart_smoothing === 'linear') curveType = curveLinear;
+    if (this._config.chart_smoothing === 'step') curveType = curveStepAfter;
+
     const lineGen = line<HistoryPoint>()
       .x((d) => x(d.date))
       .y((d) => y(d.value))
-      .curve(curveMonotoneX);
+      .curve(curveType);
 
     const areaGen = area<HistoryPoint>()
       .x((d) => x(d.date))
       .y0(height - margin.bottom)
       .y1((d) => y(d.value))
-      .curve(curveMonotoneX);
+      .curve(curveType);
 
     const renderRefLine = (val?: string, className?: string, label?: string) => {
       if (!val) return null;
@@ -445,60 +523,27 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
     `
       : '';
 
-    // Hover Tooltip
-    const hoveredPoint = this._hoveredData[entityId];
-    let hoverElements = svg``;
+    // Extrema points
+    const minPoint = data.reduce((min, p) => (p.value < min.value ? p : min), data[0]);
+    const maxPoint = data.reduce((max, p) => (p.value > max.value ? p : max), data[0]);
 
-    if (hoveredPoint) {
-      const hx = x(hoveredPoint.date);
-      const hy = y(hoveredPoint.value);
+    const unitStr = place.unit || '°C';
 
-      // Calculate tooltip position to keep it within view
-      let tooltipX = hx;
-      let textAnchor = 'middle';
-      if (hx < 40) {
-        tooltipX = hx + 10;
-        textAnchor = 'start';
-      } else if (hx > width - 40) {
-        tooltipX = hx - 10;
-        textAnchor = 'end';
-      }
-
-      const tooltipBgWidth = 70;
-      const tooltipBgHeight = 28;
-      let tooltipRectX = tooltipX - tooltipBgWidth / 2;
-      if (textAnchor === 'start') tooltipRectX = tooltipX - 5;
-      else if (textAnchor === 'end') tooltipRectX = tooltipX - tooltipBgWidth + 5;
-
-      // Vertical flip if too close to the top
-      let tooltipY = hy - 34; // default above
-      let textLine1Y = hy - 23;
-      let textLine2Y = hy - 11;
-
-      if (hy < 40) {
-        tooltipY = hy + 10; // place below
-        textLine1Y = hy + 21;
-        textLine2Y = hy + 33;
-      }
-
-      const unitStr = place.unit || '°C';
-
-      hoverElements = svg`
-        <g class="hover-group">
-          <line class="hover-line" x1="${hx}" x2="${hx}" y1="${margin.top}" y2="${height - margin.bottom}"></line>
-          <circle class="hover-point" cx="${hx}" cy="${hy}" r="4"></circle>
-          <rect class="hover-tooltip-bg" x="${tooltipRectX}" y="${tooltipY}" width="${tooltipBgWidth}" height="${tooltipBgHeight}" rx="4"></rect>
-          <text class="hover-tooltip-text" x="${tooltipX}" y="${textLine1Y}" text-anchor="${textAnchor}">${hoveredPoint.value}${unitStr}</text>
-          <text class="hover-tooltip-date" x="${tooltipX}" y="${textLine2Y}" text-anchor="${textAnchor}">${formatDate(hoveredPoint.date)}</text>
-        </g>
-      `;
-    }
+    const hoverElements = svg`
+      <g class="hover-group" style="display: none;">
+        <line class="hover-line" x1="0" x2="0" y1="${margin.top}" y2="${height - margin.bottom}"></line>
+        <circle class="hover-point" cx="0" cy="0" r="4"></circle>
+        <rect class="hover-tooltip-bg" x="0" y="0" width="70" height="28" rx="4"></rect>
+        <text class="hover-tooltip-text" x="0" y="0" text-anchor="middle"></text>
+        <text class="hover-tooltip-date" x="0" y="0" text-anchor="middle"></text>
+      </g>
+    `;
 
     return svg`
       <defs>
-        <linearGradient id="gradient-${entityId.replace(/\./g, '-')}" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style="stop-color: var(--primary-color, #0077be); stop-opacity: 0.3"></stop>
-          <stop offset="100%" style="stop-color: var(--primary-color, #0077be); stop-opacity: 0"></stop>
+        <linearGradient id="gradient-${entityId.replace(/\./g, '-')}" x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" style="stop-color: var(--primary-color, #0077be); stop-opacity: 0.1"></stop>
+          <stop offset="100%" style="stop-color: var(--error-color, #db4437); stop-opacity: 0.4"></stop>
         </linearGradient>
       </defs>
       <text class="axis-label start" x="${margin.left}" y="${height - 5}">${formatDate(startDate)}</text>
@@ -517,6 +562,9 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
       ${renderRefLine(place.average_max, 'max', 'Max')}
       ${renderRefLine(place.average_avg, 'avg', 'Avg')}
       
+      ${minPoint ? svg`<circle class="extrema-dot min" cx="${x(minPoint.date)}" cy="${y(minPoint.value)}" r="3"></circle>` : ''}
+      ${maxPoint ? svg`<circle class="extrema-dot max" cx="${x(maxPoint.date)}" cy="${y(maxPoint.value)}" r="3"></circle>` : ''}
+
       ${nowDot}
       ${hoverElements}
       
@@ -527,8 +575,8 @@ export class SeaTemperaturesCard extends LitElement implements LovelaceCard {
         width="${width - margin.left - margin.right}"
         height="${height - margin.top - margin.bottom}"
         fill="transparent"
-        @mousemove="${(e: MouseEvent) => this._handleMouseMove(e, entityId, data, x)}"
-        @mouseleave="${() => this._handleMouseLeave(entityId)}"
+        @mousemove="${(e: MouseEvent) => this._handleMouseMove(e, entityId, data, x, y, unitStr)}"
+        @mouseleave="${(e: MouseEvent) => this._handleMouseLeave(e)}"
       ></rect>
     `;
   }

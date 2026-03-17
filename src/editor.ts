@@ -15,10 +15,11 @@ const SCHEMA = [
     type: 'expandable',
     title: 'groups.display',
     schema: [
-      { name: 'show_trend', selector: { boolean: {} } },
       { name: 'show_last_updated', selector: { boolean: {} } },
+      { name: 'show_trend', selector: { boolean: {} } },
       { name: 'show_stats', selector: { boolean: {} } },
       { name: 'show_chart', selector: { boolean: {} } },
+      { name: 'chart_smoothing', selector: { select: { options: ['smooth', 'linear', 'step'] } } },
     ],
   },
 ];
@@ -34,6 +35,7 @@ export class SeaTemperaturesCardEditor extends LitElement implements LovelaceCar
       show_last_updated: true,
       show_stats: true,
       show_chart: true,
+      chart_smoothing: 'smooth',
       ...config,
     };
   }

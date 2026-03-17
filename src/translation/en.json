@@ -8,7 +8,8 @@
     "show_trend": "Show trend indicators (24h)",
     "show_last_updated": "Show last updated",
     "show_stats": "Show statistics (Yesterday, Last Week, Last Year)",
-    "show_chart": "Show historical chart (30d)"
+    "show_chart": "Show historical chart (30d)",
+    "chart_smoothing": "Chart smoothing"
   },
   "card": {
     "place_not_found": "Place not found: {place}"
