@@ -1,3 +1,6 @@
+$min-color: #41bdf5;
+$max-color: #ff9800;
+
 :host ::slotted(.card-content),
 .card-content {
   display: flex;
@@ -37,10 +40,10 @@
     opacity: 0.5;
 
     &.min {
-      stroke: #41bdf5;
+      stroke: $min-color;
     }
     &.max {
-      stroke: #ff9800;
+      stroke: $max-color;
     }
     &.avg {
       stroke: var(--primary-color, #0077be);
@@ -152,11 +155,11 @@
   --mdc-icon-size: 24px;
 
   &.up {
-    color: var(--error-color, #db4437);
+    color: $max-color;
   }
 
   &.down {
-    color: var(--success-color, #43a047);
+    color: $min-color;
   }
 
   &.same {
@@ -177,10 +180,10 @@
   dominant-baseline: middle;
 
   &.min {
-    fill: #41bdf5;
+    fill: $min-color;
   }
   &.max {
-    fill: #ff9800;
+    fill: $max-color;
   }
   &.avg {
     fill: var(--primary-color, #0077be);
@@ -200,10 +203,10 @@
 .extrema-dot {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
   &.min {
-    fill: #41bdf5;
+    fill: $min-color;
   }
   &.max {
-    fill: #ff9800;
+    fill: $max-color;
   }
 }
 
