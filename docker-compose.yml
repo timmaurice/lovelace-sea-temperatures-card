@@ -1,0 +1,13 @@
+services:
+  homeassistant:
+    container_name: homeassistant-card-test
+    image: 'ghcr.io/home-assistant/home-assistant:stable'
+    volumes:
+      - ../seatemperature/config:/config
+      - ../seatemperature/custom_components/seatemperatures:/config/custom_components/seatemperatures
+      - ./dist:/config/www/sea-temperatures-card
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - '8123:8123'
+    restart: unless-stopped
+    privileged: true
