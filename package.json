@@ -37,12 +37,18 @@
     "jsdom": "^29.0.1",
     "lit": "^3.3.2",
     "prettier": "^3.8.1",
-    "rollup": "^4.60.0",
+    "rollup": "^4.60.1",
     "rollup-plugin-lit-css": "^6.0.1",
     "rollup-plugin-string": "^3.0.0",
+<<<<<<< HEAD
     "sass": "^1.98.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.57.2",
+=======
+    "sass": "^1.99.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0",
+>>>>>>> origin/dependabot/npm_and_yarn/npm-dependencies-5785d8fe1e
     "vitest": "^4.1.2"
   },
   "dependencies": {
