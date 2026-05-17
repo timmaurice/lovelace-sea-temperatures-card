@@ -1,5 +1,10 @@
 # Sea Temperatures Card
 
+> [!WARNING]
+> **REPOSITORY ARCHIVED**
+> This standalone card repository is no longer maintained. To simplify installation and development, the card has been merged directly into the main [Sea Temperatures Integration](https://github.com/timmaurice/seatemperature). 
+> Please go to the integration repository for all future updates, source code, and to report issues.
+
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/timmaurice/sea-temperatures-card?style=flat-square)
 [![GH-downloads](https://img.shields.io/github/downloads/timmaurice/sea-temperatures-card/total?style=flat-square)](https://github.com/timmaurice/sea-temperatures-card/releases)
